@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NFC Review Card Config</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            background-color: white;
+            width: 100%;
+            height: 100vh; /* Tampilan penuh untuk mobile */
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        @media (min-width: 450px) {
+            .app-container {
+                height: 750px;
+                border-radius: 2rem;
+                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+                margin: 2rem;
+            }
+        }
+
+        .url-bar {
+            background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;
+            padding: 0.75rem; display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .step-content {
+            display: none; flex-direction: column; flex-grow: 1; padding: 1.5rem;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .step-content.active { display: flex; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input {
+            width: 100%; padding: 0.85rem; padding-left: 2.5rem;
+            border: 1px solid #d1d5db; border-radius: 0.75rem;
+            font-size: 16px; outline: none; transition: border-color 0.2s;
+        }
+        input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+
+        .btn-primary {
+            background-color: #2563eb; color: white; padding: 1rem;
+            border-radius: 0.75rem; font-weight: 600; width: 100%; border: none;
+            cursor: pointer; transition: background-color 0.2s;
+        }
+        .btn-primary:active { background-color: #1d4ed8; }
+
+        #loadingOverlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9); z-index: 50;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <i class="fas fa-spinner fa-spin text-blue-600 text-4xl mb-4"></i>
+            <p class="text-gray-600 font-medium font-sans">Menghubungkan ke Database...</p>
+        </div>
+
+        <div class="url-bar">
+            <div class="text-xs text-gray-500 font-mono"><i class="fas fa-lock text-green-500 mr-1"></i> nfc.config</div>
+            <div id="userIdDisplay" class="text-[10px] text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded">ID: ---</div>
+        </div>
+
+        <!-- HEADER -->
+        <div class="text-center mt-8 mb-4">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-3">
+                <i class="fas fa-mobile-alt text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Setup Kartu NFC</h1>
+        </div>
+
+        <!-- STEP 1: Input Review Link -->
+        <div id="step1" class="step-content active">
+            <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6 text-sm text-blue-800">
+                <i class="fas fa-info-circle mr-1"></i> Masukkan tautan (link) Google Review bisnis Anda untuk dihubungkan dengan kartu.
+            </div>
+            
+            <form id="linkForm" class="flex-grow flex flex-col">
+                <div class="relative mb-8">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Link Google Review:</label>
+                    <div class="relative">
+                        <i class="fas fa-link absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="url" id="reviewLinkInput" placeholder="https://g.page/r/..." required>
+                    </div>
+                </div>
+                
+                <div class="mt-auto">
+                    <button type="submit" class="btn-primary shadow-lg shadow-blue-200" id="btnSave">
+                        Simpan ke Database <i class="fas fa-cloud-upload-alt ml-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- STEP 2: Success -->
+        <div id="step2" class="step-content text-center">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
+                <i class="fas fa-check text-4xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Tersimpan!</h2>
+            <p class="text-gray-500 mb-8 px-4">
+                Data telah tersimpan di Firebase. Kartu NFC Anda siap digunakan.
+            </p>
+            
+            <div class="bg-gray-50 rounded-2xl p-2 border border-gray-100 space-y-2">
+                <button id="btnTestCard" class="w-full flex items-center p-4 bg-white border border-gray-100 rounded-xl active:bg-gray-50 transition-all">
+                    <div class="bg-blue-100 w-10 h-10 flex items-center justify-center rounded-full mr-4">
+                        <i class="fas fa-external-link-alt text-blue-600"></i>
+                    </div>
+                    <span class="text-base text-gray-800 font-medium text-left flex-grow">Uji Link Tujuan</span>
+                    <i class="fas fa-chevron-right text-gray-300"></i>
+                </button>
+                
+                <button id="btnEditLink" class="w-full flex items-center p-4 bg-white border border-gray-100 rounded-xl active:bg-gray-50 transition-all">
+                    <div class="bg-gray-100 w-10 h-10 flex items-center justify-center rounded-full mr-4">
+                        <i class="fas fa-pen text-gray-600"></i>
+                    </div>
+                    <span class="text-base text-gray-800 font-medium text-left flex-grow">Ubah Konfigurasi</span>
+                    <i class="fas fa-chevron-right text-gray-300"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // 🔥 GANTI BAGIAN INI DENGAN KONFIGURASI FIREBASE ANDA (LANGKAH 4) 🔥
+        // =====================================================================
+        const myFirebaseConfig = {
+            apiKey: "MASUKKAN_API_KEY_ANDA_DISINI",
+            authDomain: "proyek-anda.firebaseapp.com",
+            projectId: "proyek-anda",
+            storageBucket: "proyek-anda.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef"
+        };
+        // =====================================================================
+
+        let db = null;
+        let currentUser = null;
+        let savedLink = '';
+
+        // Elements
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const reviewLinkInput = document.getElementById('reviewLinkInput');
+        const btnSave = document.getElementById('btnSave');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        // === INISIALISASI FIREBASE ===
+        async function initApp() {
+            try {
+                // Periksa apakah user mengganti apiKey default
+                if(myFirebaseConfig.apiKey === "MASUKKAN_API_KEY_ANDA_DISINI") {
+                    throw new Error("Konfigurasi Firebase belum diisi. Silakan edit file index.html");
+                }
+
+                firebase.initializeApp(myFirebaseConfig);
+                const auth = firebase.auth();
+                db = firebase.firestore();
+                
+                // Login Anonim (Otomatis)
+                const userCredential = await auth.signInAnonymously();
+                currentUser = userCredential.user;
+                
+                userIdDisplay.textContent = `ID: ${currentUser.uid.substring(0, 5)}`;
+                
+                // Coba ambil data link yang mungkin sudah pernah disimpan pengguna ini
+                await loadDataFromFirebase();
+                
+                loadingOverlay.style.display = 'none';
+
+            } catch (error) {
+                console.error("Firebase Error:", error);
+                document.querySelector('#loadingOverlay p').innerHTML = 
+                    `<span class="text-red-500 font-bold">Error:</span><br><span class="text-sm">${error.message}</span>`;
+                document.querySelector('#loadingOverlay i').className = "fas fa-exclamation-triangle text-red-500 text-4xl mb-4";
+            }
+        }
+
+        // === AMBIL DATA ===
+        async function loadDataFromFirebase() {
+            const docRef = db.collection("nfc_links").doc(currentUser.uid);
+            const docSnap = await docRef.get();
+
+            if (docSnap.exists && docSnap.data().url) {
+                savedLink = docSnap.data().url;
+                reviewLinkInput.value = savedLink;
+                showSuccess();
+            }
+        }
+
+        // === SIMPAN DATA ===
+        async function saveDataToFirebase(url) {
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...';
+            btnSave.disabled = true;
+
+            try {
+                // Menyimpan ke koleksi 'nfc_links', menggunakan UID user sebagai nama dokumen
+                await db.collection("nfc_links").doc(currentUser.uid).set({
+                    url: url,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                savedLink = url;
+                showSuccess();
+            } catch (error) {
+                console.error("Gagal menyimpan:", error);
+                alert("Gagal menyimpan ke database. Pastikan Rule Firestore sudah diatur.");
+            } finally {
+                btnSave.innerHTML = 'Simpan ke Database <i class="fas fa-cloud-upload-alt ml-2"></i>';
+                btnSave.disabled = false;
+            }
+        }
+
+        // === UI CONTROL ===
+        function showForm() {
+            step1.classList.add('active');
+            step2.classList.remove('active');
+        }
+
+        function showSuccess() {
+            step1.classList.remove('active');
+            step2.classList.add('active');
+        }
+
+        // === EVENT LISTENERS ===
+        document.getElementById('linkForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const url = reviewLinkInput.value.trim();
+            if (url) saveDataToFirebase(url);
+        });
+
+        document.getElementById('btnEditLink').addEventListener('click', showForm);
+
+        document.getElementById('btnTestCard').addEventListener('click', () => {
+            if (savedLink) window.location.href = savedLink;
+        });
+
+        // Jalankan saat halaman dimuat
+        window.onload = initApp;
+
+    </script>
+</body>
+</html>
