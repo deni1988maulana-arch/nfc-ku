@@ -1,0 +1,124 @@
+```html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <!-- Meta viewport sangat penting agar tampilan menyesuaikan layar HP -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mengarahkan...</title>
+    
+    <!-- Memuat Tailwind CSS untuk styling yang cepat dan elegan -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Animasi spinner kustom yang elegan */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #ffffff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<!-- Latar belakang biru gelap yang elegan (slate-900) -->
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <!-- Kontainer UI Loading -->
+    <div id="loading-container" class="flex flex-col items-center text-center transition-opacity duration-300">
+        <div class="spinner mb-6"></div>
+        <h1 class="text-2xl font-semibold mb-2 tracking-wide">Mohon Tunggu...</h1>
+        <p class="text-slate-400 text-sm">Membuka halaman ulasan Google.</p>
+    </div>
+
+    <!-- Kontainer Error (disembunyikan secara default) -->
+    <div id="error-container" class="hidden flex-col items-center text-center max-w-md bg-slate-800 p-6 rounded-2xl shadow-xl border border-red-500/30">
+        <svg class="w-16 h-16 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h2 class="text-xl font-bold text-red-400 mb-2">Terjadi Kesalahan</h2>
+        <p id="error-message" class="text-slate-300 text-sm mb-6">Tautan tidak valid atau data tidak ditemukan.</p>
+    </div>
+
+    <!-- Firebase SDK v11 (ES Modules) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // 1. MASUKKAN KONFIGURASI FIREBASE ANDA DI SINI
+        // Pastikan konfigurasi ini sama dengan yang ada di index.html (halaman admin)
+        // =========================================================================
+        const firebaseConfig = {
+            apiKey: "API_KEY_ANDA",
+            authDomain: "PROJECT_ID.firebaseapp.com",
+            projectId: "PROJECT_ID",
+            storageBucket: "PROJECT_ID.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+
+        // Inisialisasi Firebase & Firestore
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Fungsi untuk menampilkan pesan error
+        function showError(message) {
+            document.getElementById('loading-container').classList.add('hidden');
+            document.getElementById('error-container').classList.remove('hidden');
+            document.getElementById('error-container').classList.add('flex');
+            document.getElementById('error-message').innerText = message;
+        }
+
+        // Fungsi utama untuk membaca ID dan melakukan redirect
+        async function processScan() {
+            try {
+                // Mengambil parameter 'id' dari URL (contoh: scan.html?id=xyz123)
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+
+                if (!id) {
+                    showError("ID tidak ditemukan pada tautan NFC.");
+                    return;
+                }
+
+                // =========================================================================
+                // 2. NAMA KOLEKSI HARUS SAMA DENGAN DI INDEX.HTML
+                // Asumsi: Anda menyimpan data link di koleksi bernama "nfc_links"
+                // Ubah "nfc_links" jika Anda menggunakan nama koleksi yang berbeda.
+                // =========================================================================
+                const docRef = doc(db, "nfc_links", id);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    // Memastikan field tempat link disimpan ada (asumsi nama field: 'url')
+                    if (data.url) {
+                        // Menggunakan replace() agar pengguna tidak bisa kembali 
+                        // ke halaman loading ini saat menekan tombol "Back" di HP
+                        window.location.replace(data.url);
+                    } else {
+                        showError("Link Google Review tidak ditemukan di dalam database.");
+                    }
+                } else {
+                    showError("Kartu belum dikonfigurasi atau data telah dihapus.");
+                }
+
+            } catch (error) {
+                console.error("Error sistem:", error);
+                showError("Gagal menghubungi server. Pastikan koneksi internet Anda stabil.");
+            }
+        }
+
+        // Jalankan proses segera setelah halaman dimuat
+        window.onload = processScan;
+    </script>
+</body>
+</html>
+```
