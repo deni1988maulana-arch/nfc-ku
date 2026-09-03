@@ -92,7 +92,7 @@
                 // Asumsi: Anda menyimpan data link di koleksi bernama "nfc_links"
                 // Ubah "nfc_links" jika Anda menggunakan nama koleksi yang berbeda.
                 // =========================================================================
-                const docRef = doc(db, "reviews", id);
+                const docRef = doc(db, "nfc_links", id);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
